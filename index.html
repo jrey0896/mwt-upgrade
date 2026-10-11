@@ -26,13 +26,13 @@
               // Set the cookie for the current domain so subsequent requests include it
               // We take only the name=value part, ignoring path/domain/secure flags for simplicity
               const cookieNameValue = setCookieHeader.split(";")[0];
+              console.log("[Frontend] Setting cookie to: ", cookieNameValue);
               document.cookie = cookieNameValue;
-              console.log("Cookie set:", cookieNameValue);
             }
             return res.text();
           })
           .then((data) => {
-            console.log("API Response received (Raw HTML):", data);
+            console.log("[Frontend] Received from backend: ", data);
 
             // Optional: Clear the spinner before injecting
             const spinner = document.getElementById("loading-spinner");

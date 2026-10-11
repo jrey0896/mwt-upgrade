@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     // 3. Extract the CSRF Token
     const tokenMatch = html.match(/name="_token"[^>]*value="([^"]+)"/);
     const token = tokenMatch ? tokenMatch[1] : null;
-    console.log("Token found:", token);
+    console.log("[get-login-page] Sending Token/Cookie: ", token)
 
     if (!token) {
       console.error("Could not find _token in HTML");
