@@ -24,10 +24,16 @@ export async function GET(request: NextRequest) {
 
     let html = await response.text();
 
-    // 2. FIX THE BLANK PAGE: Replace relative paths with absolute ones
-    // Note: You might also need to fix 'src' attributes for images/styles/scripts
-    html = html.replace(/href="\/(?!https?:\/\/)/g, 'href="https://webmail.mwt.net/');
-    html = html.replace(/src="\/(?!https?:\/\/)/g, 'src="https://webmail.mwt.net/');
+    // 2. FIX ASSETS: Replace any relative path starting with / or a letter (that isn't http)
+    // This covers: src="/path", src="folder/file.png", href="/page"
+    html = html.replace(/((?:href|src)=")(?!(?:https?:\/\/)?)([^"]+)/g, (match, prefix, content) => {
+        // If the content already has http/https, leave it alone
+        if (/^https?:\/\//.test(content)) {
+            return match;
+        }
+        // Otherwise, prepend the base URL
+        return prefix + "https://webmail.mwt.net/" + content;
+    });
     
     console.log("HTML paths absolute-ified.");
 
