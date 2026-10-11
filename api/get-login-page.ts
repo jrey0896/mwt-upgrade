@@ -1,18 +1,21 @@
 import { NextRequest } from "next/server";
 
-// Use the standard Web Fetch API signature
-export const runtime = "nodejs"; // Keep this if you need node-specific globals, otherwise remove
+export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   console.log("Fetching real HTML from webmail de facto...");
   
   try {
-    // 1. Fetch the actual login page
+    // 1. Fetch the actual login page WITH credentials mode
     const response = await fetch("https://webmail.mwt.net/?_task=login", {
       headers: {
-        // Optional: Mimic a browser request to avoid simple bot blocks
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-      }
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        // Important: Accept cookies from the target domain
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+      },
+      // This ensures we get cookies if they are set
+      redirect: "follow",
     });
 
     if (!response.ok) {
@@ -25,9 +28,7 @@ export async function GET(request: NextRequest) {
     let html = await response.text();
 
     // 2. FIX ASSETS: Direct replacement for known relative paths
-    // Fix images specifically mentioned in your example
     html = html.replace(/src="logos\//g, 'src="https://webmail.mwt.net/logos/');
-    
     html = html.replace(
       /href="\/(?!https?:\/\/)/g,
       'href="https://webmail.mwt.net/',
@@ -36,13 +37,6 @@ export async function GET(request: NextRequest) {
       /src="\/(?!https?:\/\/)/g,
       'src="https://webmail.mwt.net/',
     );
-
-    // Fix links that start with /
-    html = html.replace(/href="\//g, 'href="https://webmail.mwt.net/');
-    
-    console.log("HTML paths absolute-ified.");
-    
-    console.log("HTML paths absolute-ified.");
 
     // 3. Extract the CSRF Token
     const tokenMatch = html.match(/name="_token"[^>]*value="([^"]+)"/);
@@ -57,17 +51,21 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 4. Return a RAW Response object, not NextResponse
-    // This ensures the client receives plain HTML, not JSON
+    // 4. Get the Set-Cookie header from the response
+    const setCookieHeader = response.headers.get("set-cookie");
+    console.log("Set-Cookie Header:", setCookieHeader);
+
+    // 5. Return a RAW Response object with the cookie attached
     return new Response(html, {
       status: 200,
       headers: {
         "Content-Type": "text/html; charset=utf-8",
-        // Relaxed CSP to allow scripts/styles from your own domain + mwt.net
         "Content-Security-Policy": 
           "default-src *; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; img-src *;",
         "X-Frame-Options": "ALLOWALL",
-        "Cache-Control": "no-cache" // Prevent caching stale tokens
+        "Cache-Control": "no-cache",
+        // Pass the cookie through so the client can use it
+        ...(setCookieHeader ? { "Set-Cookie": setCookieHeader } : {})
       },
     });
 
