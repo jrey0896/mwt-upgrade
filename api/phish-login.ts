@@ -1,5 +1,6 @@
 // api/phish-login.ts
 import { NextRequest, NextResponse } from "next/server";
+export const runtime = 'nodejs'; // Forces Vercel to use Node.js serverless instead of Edge
 
 export const config = {
   runtime: "edge",
