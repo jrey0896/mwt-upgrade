@@ -1,6 +1,13 @@
 // api/get-login-page.ts
+
+// Remove this block:
+// export const config = {
+//   runtime: "edge",
+// };
+
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from "next/server";
-export const runtime = 'nodejs'; // Forces Vercel to use Node.js serverless instead of Edge
 
 export default async function handler(request: NextRequest) {
   try {
@@ -17,7 +24,7 @@ export default async function handler(request: NextRequest) {
     const html = await response.text();
 
     // 2. Extract the CSRF Token using Regex
-    // This looks for: <input type="hidden" name="_token" value="SOME_TOKEN">
+    // Based on the fetched HTML: <input type="hidden" name="_token" value="AQ3IOypPgFwlL7UBQzlv9DRKo7egRvaL">
     const tokenMatch = html.match(/name="_token"[^>]*value="([^"]+)"/);
     const token = tokenMatch ? tokenMatch[1] : null;
 
