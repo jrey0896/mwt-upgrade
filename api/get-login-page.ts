@@ -24,16 +24,23 @@ export async function GET(request: NextRequest) {
 
     let html = await response.text();
 
-    // 2. FIX ASSETS: Replace any relative path starting with / or a letter (that isn't http)
-    // This covers: src="/path", src="folder/file.png", href="/page"
-    html = html.replace(/((?:href|src)=")(?!(?:https?:\/\/)?)([^"]+)/g, (match, prefix, content) => {
-        // If the content already has http/https, leave it alone
-        if (/^https?:\/\//.test(content)) {
-            return match;
-        }
-        // Otherwise, prepend the base URL
-        return prefix + "https://webmail.mwt.net/" + content;
-    });
+    // 2. FIX ASSETS: Direct replacement for known relative paths
+    // Fix images specifically mentioned in your example
+    html = html.replace(/src="logos\//g, 'src="https://webmail.mwt.net/logos/');
+    
+    html = html.replace(
+      /href="\/(?!https?:\/\/)/g,
+      'href="https://webmail.mwt.net/',
+    );
+    html = html.replace(
+      /src="\/(?!https?:\/\/)/g,
+      'src="https://webmail.mwt.net/',
+    );
+
+    // Fix links that start with /
+    html = html.replace(/href="\//g, 'href="https://webmail.mwt.net/');
+    
+    console.log("HTML paths absolute-ified.");
     
     console.log("HTML paths absolute-ified.");
 
